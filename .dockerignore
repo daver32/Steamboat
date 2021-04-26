@@ -1,0 +1,11 @@
+Tests
+*/bin
+*/obj
+.dockerignore
+.env
+.git
+.gitignore
+.vs
+.vscode
+**/.toolstarget
+.idea
