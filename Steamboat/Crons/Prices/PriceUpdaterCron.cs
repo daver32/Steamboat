@@ -54,7 +54,7 @@ namespace Steamboat.Crons.Prices
             }
 
             var appsUpdated = await _appPricesUpdater.ProcessAppsAsync(apps, loopId, cancellationToken);
-            _appRepository.AddOrUpdateApps(appsUpdated);
+            _appRepository.AddOrUpdateApps(appsUpdated, true, true);
             
             Console.WriteLine(
                 $"Fetched the prices of the next {apps.Count} apps (app IDs {apps[0].Id} - {apps[^1].Id})");

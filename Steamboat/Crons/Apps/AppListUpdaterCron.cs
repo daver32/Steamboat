@@ -48,7 +48,7 @@ namespace Steamboat.Crons.Apps
 
             Console.WriteLine($"Fetched a total of {apps.Count} apps");
 
-            _appRepository.AddOrUpdateApps(apps.Select(MapApp));
+            _appRepository.AddOrUpdateApps(apps.Select(MapApp), false, false);
             
             _lastUpdateTimeStore.Store(DateTimeOffset.UtcNow);
         }

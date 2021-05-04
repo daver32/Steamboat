@@ -15,20 +15,18 @@ namespace Steamboat.Data.Repos
         {
             _databaseHolder = databaseHolder;
         }
-
-        public void AddOrUpdateApps(params AppEntity[] apps)
-        {
-            AddOrUpdateApps((IEnumerable<AppEntity>)apps);
-        }
         
-        public void AddOrUpdateApps(IEnumerable<AppEntity> apps)
+        public void AddOrUpdateApps(
+            IEnumerable<AppEntity> apps,
+            bool updatePriceFetchId,
+            bool updateLastDiscountPercentage)
         {
             var collection = GetCollection();
             
             var newApps = new List<AppEntity>();
             foreach (var app in apps)
             {
-                if (!collection.Update(app))
+                if (!UpdateAppIfExists(collection, app, updatePriceFetchId, updateLastDiscountPercentage))
                 {
                     newApps.Add(app);
                 }
@@ -37,6 +35,35 @@ namespace Steamboat.Data.Repos
             collection.InsertBulk(newApps);
         }
 
+        private static bool UpdateAppIfExists(
+            ILiteCollection<AppEntity> collection,
+            AppEntity newApp, 
+            bool updatePriceFetchId, 
+            bool updateLastDiscountPercentage)
+        {
+            var oldApp = collection.FindById(newApp.Id);
+            if (oldApp is null)
+            {
+                return false;
+            }
+
+            var newPriceFetchId = updatePriceFetchId 
+                ? newApp.PriceFetchId 
+                : oldApp.PriceFetchId;
+            
+            var newLastDiscountPercentage = updateLastDiscountPercentage
+                ? newApp.LastDiscountPercentage
+                : oldApp.LastDiscountPercentage;
+
+            newApp = newApp with
+            {
+                PriceFetchId = newPriceFetchId,
+                LastDiscountPercentage = newLastDiscountPercentage,
+            };
+
+            return collection.Update(newApp);
+        }
+        
         public IList<AppEntity> ListApps(
             int page, 
             int amount, 
