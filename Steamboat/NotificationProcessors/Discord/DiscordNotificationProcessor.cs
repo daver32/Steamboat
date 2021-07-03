@@ -30,7 +30,16 @@ namespace Steamboat.NotificationProcessors.Discord
             }
         }
 
-        public async Task HandleAppPricesScanned(IReadOnlyList<AppEntity> apps)
+        public Task HandleAppPricesScanned(IReadOnlyList<AppEntity> apps)
+        {
+            // using Task.Run because retrieving the discord client may take time and this is expected
+            // to be used more as a fire and forget event
+            
+            Task.Run(async () => await HandleAppPricesScannedInternalAsync(apps));
+            return Task.CompletedTask;
+        }
+
+        private async Task HandleAppPricesScannedInternalAsync(IReadOnlyList<AppEntity> apps)
         {
             var client = await _clientHolder.GetClientAsync();
 
@@ -39,7 +48,6 @@ namespace Steamboat.NotificationProcessors.Discord
                 return;
             }
 
-            
             var activity = new DiscordActivity($"apps {apps[0].Id} - {apps[^1].Id}", ActivityType.Watching);
             await client.UpdateStatusAsync(activity, UserStatus.Online);
         }
