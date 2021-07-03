@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using InterfaceGenerator;
 using Steamboat.Data.Repos;
 
@@ -15,10 +16,10 @@ namespace Steamboat.Crons.Apps
             _stateEntryRepository = stateEntryRepository;
         }
 
-        public DateTimeOffset? Get()
+        public async Task<DateTimeOffset?> GetAsync()
         {
-            var lastUpdateTimestamp = _stateEntryRepository.GetValue<long>(LastUpdateTimeKey);
-            if (lastUpdateTimestamp == 0)
+            var lastUpdateTimestampStr = await _stateEntryRepository.GetValueAsync(LastUpdateTimeKey);
+            if (!long.TryParse(lastUpdateTimestampStr, out var lastUpdateTimestamp) || lastUpdateTimestamp <= 0)
             {
                 return default;
             }
@@ -26,10 +27,10 @@ namespace Steamboat.Crons.Apps
             return DateTimeOffset.FromUnixTimeSeconds(lastUpdateTimestamp);
         }
 
-        public void Store(DateTimeOffset time)
+        public async Task StoreAsync(DateTimeOffset time)
         {
             var timestamp = time.ToUnixTimeSeconds();
-            _stateEntryRepository.StoreValue(LastUpdateTimeKey, timestamp);
+            await _stateEntryRepository.StoreValueAsync(LastUpdateTimeKey, timestamp.ToString());
         }
     }
 }

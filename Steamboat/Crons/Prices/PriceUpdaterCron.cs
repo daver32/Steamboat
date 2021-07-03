@@ -6,11 +6,11 @@ using Steamboat.Data.Entities;
 using Steamboat.Data.Repos;
 using Steamboat.NotificationProcessors;
 using Steamboat.Util;
-using Steamboat.Util.Serivices;
+using Steamboat.Util.Services;
 
 namespace Steamboat.Crons.Prices
 {
-    internal class PriceUpdaterCron : CronBase
+    internal class PriceUpdaterCron : ICron
     {
         private readonly IAppRepository _appRepository;
         private readonly INotificationDispatcher _notificationDispatcher;
@@ -35,26 +35,24 @@ namespace Steamboat.Crons.Prices
             _appPricesUpdater = appPricesUpdater;
         }
 
-        protected override int UpdateIntervalMs => _configProvider.UpdateIntervalMs;
-
-        public override async Task Update(CancellationToken cancellationToken)
+        public async Task Update(CancellationToken cancellationToken)
         {
-            var loopId = _loopIdStore.GetOrCreate();
+            var loopId = await _loopIdStore.GetOrCreateAsync();
             Console.WriteLine($"Price update ID: {loopId}");
 
             // Over time fetch all the apps that don't have the current "loop uuid" yet
-            var apps = GetNextApps(loopId);
+            var apps = await GetNextAppsAsync(loopId);
             
             if (apps.Count == 0)
             {
                 // Found no apps with a new ID -> refresh the ID and start anew in the next tick
                 Console.WriteLine("Reached the end of price update");
-                _loopIdStore.Store(_guidProvider.Create());
+                await _loopIdStore.StoreAsync(_guidProvider.Create());
                 return;
             }
 
             var appsUpdated = await _appPricesUpdater.ProcessAppsAsync(apps, loopId, cancellationToken);
-            _appRepository.AddOrUpdateApps(appsUpdated, true, true);
+            await _appRepository.AddOrUpdateAppsAsync(appsUpdated, true, true);
             
             Console.WriteLine(
                 $"Fetched the prices of the next {apps.Count} apps (app IDs {apps[0].Id} - {apps[^1].Id})");
@@ -62,9 +60,22 @@ namespace Steamboat.Crons.Prices
             await _notificationDispatcher.NotifyAppPricesScanned(ReadOnlyListProxy.From(apps));
         }
 
-        private IList<AppEntity> GetNextApps(Guid loopId)
+        private async Task<IList<AppEntity>> GetNextAppsAsync(Guid loopId)
         {
-            return _appRepository.ListApps(0, _configProvider.NumAppsPerPriceUpdateTick, loopId);
+            return await _appRepository.ListAppsAsync(
+                0, _configProvider.NumAppsPerPriceUpdateTick, loopId);
+        }
+        
+        public class Config : CronConfig<PriceUpdaterCron>
+        {
+            private readonly IPriceUpdaterConfigProvider _configProvider;
+
+            public Config(IPriceUpdaterConfigProvider configProvider)
+            {
+                _configProvider = configProvider;
+            }
+
+            public override int UpdateIntervalMs => _configProvider.UpdateIntervalMs;
         }
     }
 }

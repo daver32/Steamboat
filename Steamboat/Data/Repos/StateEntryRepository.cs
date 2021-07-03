@@ -1,69 +1,34 @@
-﻿using System;
+﻿using System.Threading.Tasks;
+using Dapper.Transaction;
 using InterfaceGenerator;
-using LiteDB;
-using Steamboat.Data.Entities;
 
 namespace Steamboat.Data.Repos
 {
     [GenerateAutoInterface]
     internal class StateEntryRepository : IStateEntryRepository
     {
-        private readonly DatabaseHolder _databaseHolder;
+        private readonly IDbContext _dbContext;
 
-        public StateEntryRepository(DatabaseHolder databaseHolder)
+        public StateEntryRepository(IDbContext dbContext)
         {
-            _databaseHolder = databaseHolder;
+            _dbContext = dbContext;
         }
 
-        public string? GetValue(string key)
+        public async Task<string?> GetValueAsync(string key)
         {
-            var collection = GetCollection();
-            var entry = collection.FindById(key);
-
-            if (entry is null)
-            {
-                return default;
-            }
-
-            return entry.Value;
-        }
-        
-        public TValue? GetValue<TValue>(string key)
-        {
-            var strValue = GetValue(key);
-            
-            if (strValue is null)
-            {
-                return default;
-            }
-
-            return (TValue?)Convert.ChangeType(strValue, typeof(TValue));
+            var transaction = await _dbContext.GetTransactionAsync();
+            return await transaction.QuerySingleOrDefaultAsync<string?>(
+                "SELECT Value FROM StateEntries WHERE Key=@key", new { key });
         }
 
-        public void StoreValue(string key, string? value)
+        public async Task StoreValueAsync(string key, string? value)
         {
-            var collection = GetCollection();
+            var transaction = await _dbContext.GetTransactionAsync();
 
-            var entry = new StateEntryEntity
-            {
-                Key = key,
-                Value = value,
-            };
+            const string insert = "INSERT INTO StateEntries(Key, Value) VALUES (@key, @value) " +
+                                  "ON CONFLICT(Key) DO UPDATE SET Value = @value";
 
-            if (!collection.Update(entry))
-            {
-                collection.Insert(entry);
-            }
-        }
-
-        public void StoreValue<TValue>(string key, TValue? value)
-        {   
-            StoreValue(key, Convert.ToString(value));
-        }
-        
-        private ILiteCollection<StateEntryEntity> GetCollection()
-        {
-            return _databaseHolder.Database.GetCollection<StateEntryEntity>();
+            await transaction.ExecuteAsync(insert, new { key, value });
         }
     }
 }

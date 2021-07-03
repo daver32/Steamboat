@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using AutoFixture;
 using FluentAssertions;
 using NSubstitute;
@@ -26,7 +27,7 @@ namespace Tests
         }
 
         [Fact]
-        public void Process_TriggersNotification_WhenFullDiscountDetected()
+        public async Task Process_TriggersNotification_WhenFullDiscountDetected()
         {
             // Given
             var appId = _fixture.Create<int>();
@@ -44,14 +45,14 @@ namespace Tests
             };
 
             NotificationJobEntity createdNotificationJob = null;
-            _notificationJobRepository.When(x => x.Enqueue(Arg.Any<NotificationJobEntity>()))
+            _notificationJobRepository.When(x => x.EnqueueAsync(Arg.Any<NotificationJobEntity>()))
                                       .Do(x => createdNotificationJob = x.ArgAt<NotificationJobEntity>(0));
 
             // When
-            _sut.Process(app, appPrices, loopId);
+            await _sut.ProcessAsync(app, appPrices, loopId);
 
             // Then
-            _notificationJobRepository.Received(1).Enqueue(Arg.Any<NotificationJobEntity>());
+            _notificationJobRepository.Received(1).EnqueueAsync(Arg.Any<NotificationJobEntity>()).Wait();
             createdNotificationJob.Should().NotBeNull();
             createdNotificationJob.AppId.Should().Be(appId);
             createdNotificationJob.AppName.Should().Be(app.Name);
@@ -76,7 +77,7 @@ namespace Tests
         }
 
         [Fact]
-        public void Process_ReturnsCorrectly_WhenAppPriceNotFound()
+        public async Task Process_ReturnsCorrectly_WhenAppPriceNotFound()
         {
             // Arrange
             var appId = _fixture.Create<int>();
@@ -90,7 +91,7 @@ namespace Tests
             };
 
             // Act
-            var returnedApp = _sut.Process(app, appPrices, loopId);
+            var returnedApp = await _sut.ProcessAsync(app, appPrices, loopId);
 
             // Assert
 
@@ -104,7 +105,7 @@ namespace Tests
         }
         
         [Fact]
-        public void Process_ReturnsCorrectly_WhenAppPriceFound()
+        public async Task Process_ReturnsCorrectly_WhenAppPriceFound()
         {
             // Arrange
             var appId = _fixture.Create<int>();
@@ -133,7 +134,7 @@ namespace Tests
             };
 
             // Act
-            var returnedApp = _sut.Process(app, appPrices, loopId);
+            var returnedApp = await _sut.ProcessAsync(app, appPrices, loopId);
 
             // Assert
             returnedApp.Should().BeEquivalentTo(app, cfg

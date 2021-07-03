@@ -2,6 +2,9 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Steamboat;
+using Steamboat.Data;
+
+DapperTypeHandlerInitializer.Init();
 
 var configPath = Environment.GetEnvironmentVariable("CONFIG_PATH")
                  ?? "config.json";

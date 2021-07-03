@@ -1,26 +1,51 @@
-﻿using System.IO;
-using LiteDB;
+﻿using System.Data.Common;
+using System.Data.SQLite;
+using System.IO;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Steamboat.Data.Entities;
 
 namespace Steamboat.Data
 {
     internal class DbConnectionFactory
     {
         private readonly IConfiguration _configuration;
+        private readonly DbStructureIntializer _structureIntializer;
 
-        public DbConnectionFactory(IConfiguration configuration)
+        public DbConnectionFactory(IConfiguration configuration, DbStructureIntializer structureIntializer)
         {
             _configuration = configuration;
+            _structureIntializer = structureIntializer;
         }
 
-        public LiteDatabase Create()
+        public async Task<DbConnection> CreateAsync(bool useInMemoryDb = false)
         {
-            var dbPath = _configuration.GetValue<string?>("DbPath", null) ?? ConfigDefaults.DatabasePath;
-            CreatePathIfNeeded(dbPath);
-            var database = new LiteDatabase(dbPath);
-            CreateIndices(database);
-            return database;
+            var dataSource = DetermineDataSource(useInMemoryDb);
+            CreatePathIfNeeded(dataSource);
+            
+            var connection = new SQLiteConnection(BuildConnectionString(dataSource));
+            await _structureIntializer.EnsureCreatedAndUpToDateAsync(connection);
+
+            return connection;
+        }
+
+        private string DetermineDataSource(bool useInMemoryDb)
+        {
+            if (useInMemoryDb)
+            {
+                return ":memory:";
+            }
+            
+            return _configuration.GetValue<string?>("DbPath", null) ?? ConfigDefaults.DatabasePath;
+        }
+
+        private string BuildConnectionString(string dataSource)
+        {
+            var builder = new SQLiteConnectionStringBuilder();
+            builder.Version = 3;
+            builder.DataSource = dataSource;
+            builder.FailIfMissing = false; // create a new file if not existing
+            
+            return builder.ToString();
         }
 
         private static void CreatePathIfNeeded(string file)
@@ -32,11 +57,5 @@ namespace Steamboat.Data
             }
         }
 
-        private static void CreateIndices(LiteDatabase database)
-        {
-            database.GetCollection<AppEntity>().EnsureIndex(x => x.Id);
-            database.GetCollection<NotificationJobEntity>().EnsureIndex(x => x.Id);
-            database.GetCollection<StateEntryEntity>().EnsureIndex(x => x.Key);
-        }
     }
 }

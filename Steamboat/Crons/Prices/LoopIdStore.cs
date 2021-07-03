@@ -1,7 +1,8 @@
 ﻿using System;
+using System.Threading.Tasks;
 using InterfaceGenerator;
 using Steamboat.Data.Repos;
-using Steamboat.Util.Serivices;
+using Steamboat.Util.Services;
 
 namespace Steamboat.Crons.Prices
 {
@@ -19,23 +20,27 @@ namespace Steamboat.Crons.Prices
             _guidProvider = guidProvider;
         }
 
-        public Guid GetOrCreate()
+        public async Task<Guid> GetOrCreateAsync()
         {
-            var stringId = _stateEntryRepository.GetValue(LoopIdKey);
-
-            if (stringId is null)
+            var stringId = await _stateEntryRepository.GetValueAsync(LoopIdKey);
+            if (stringId is not null)
             {
-                var id = _guidProvider.Create();
-                _stateEntryRepository.StoreValue(LoopIdKey, id);
-                return id;
+                return Guid.Parse(stringId);
             }
 
-            return Guid.Parse(stringId);
+            var id = _guidProvider.Create();
+            await StoreInternalAsync(id);
+            return id;
         }
 
-        public void Store(Guid id)
+        public async Task StoreAsync(Guid id)
         {
-            _stateEntryRepository.StoreValue(LoopIdKey, id);
+            await StoreInternalAsync(id);
+        }
+
+        private async Task StoreInternalAsync(Guid id)
+        {
+            await _stateEntryRepository.StoreValueAsync(LoopIdKey, id.ToString());
         }
     }
 }

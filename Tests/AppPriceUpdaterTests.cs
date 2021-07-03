@@ -65,7 +65,7 @@ namespace Tests
                 .Returns(Task.FromResult<IDictionary<int, AppPriceInfo>>(priceInfoDictionary));
 
             _appPriceProcessor
-                .Process(
+                .ProcessAsync(
                     Arg.Any<AppEntity>(),
                     Arg.Is<IReadOnlyDictionary<int, AppPriceInfo>>(x => x.IsSameOrEqualTo(priceInfoDictionary)),
                     Arg.Is(loopId))

@@ -1,7 +1,7 @@
 ﻿using System;
 using InterfaceGenerator;
 
-namespace Steamboat.Util.Serivices
+namespace Steamboat.Util.Services
 {
     [GenerateAutoInterface]
     internal class GuidProvider : IGuidProvider

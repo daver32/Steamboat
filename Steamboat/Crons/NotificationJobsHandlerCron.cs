@@ -6,7 +6,7 @@ using Steamboat.NotificationProcessors;
 
 namespace Steamboat.Crons
 {
-    internal class NotificationJobsHandlerCron : CronBase
+    internal class NotificationJobsHandlerCron : ICron
     {
         private readonly INotificationJobRepository _notificationJobRepository;
         private readonly INotificationDispatcher _notificationDispatcher;
@@ -19,13 +19,11 @@ namespace Steamboat.Crons
             _notificationDispatcher = notificationDispatcher;
         }
         
-        protected override int UpdateIntervalMs { get; } = (int)TimeSpan.FromMinutes(10).TotalMilliseconds;
-        
-        public override async Task Update(CancellationToken cancellationToken)
+        public async Task Update(CancellationToken cancellationToken)
         {
             while (true)
             {
-                var notification = _notificationJobRepository.Dequeue();
+                var notification = await _notificationJobRepository.DequeueAsync();
                 if (notification is null)
                 {
                     break;
@@ -33,6 +31,11 @@ namespace Steamboat.Crons
                 
                 await _notificationDispatcher.NotifyFreeAppDetected(notification.AppId, notification.AppName);
             }
+        }
+        
+        public class Config : CronConfig<NotificationJobsHandlerCron>
+        {
+            public override int UpdateIntervalMs { get; } = (int)TimeSpan.FromMinutes(10).TotalMilliseconds;
         }
     }
 }

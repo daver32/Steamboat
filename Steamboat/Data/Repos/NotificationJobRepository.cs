@@ -1,4 +1,6 @@
-﻿using InterfaceGenerator;
+﻿using System.Threading.Tasks;
+using Dapper.Transaction;
+using InterfaceGenerator;
 using Steamboat.Data.Entities;
 
 namespace Steamboat.Data.Repos
@@ -6,30 +8,38 @@ namespace Steamboat.Data.Repos
     [GenerateAutoInterface]
     internal class NotificationJobRepository : INotificationJobRepository
     {
-        private readonly DatabaseHolder _databaseHolder;
+        private readonly IDbContext _dbContext;
 
-        public NotificationJobRepository(DatabaseHolder databaseHolder)
+        public NotificationJobRepository(IDbContext dbContext)
         {
-            _databaseHolder = databaseHolder;
+            _dbContext = dbContext;
         }
-        
-        public NotificationJobEntity? Dequeue()
+
+        public async Task<NotificationJobEntity?> DequeueAsync()
         {
-            var collection = _databaseHolder.Database.GetCollection<NotificationJobEntity>();
-            var notification = collection.Query().FirstOrDefault();
+            var transaction = await _dbContext.GetTransactionAsync();
+            
+            var notification = await transaction.QuerySingleOrDefaultAsync<NotificationJobEntity?>(
+                "SELECT * FROM NotificationJobs WHERE HasBeenProcessed = 0 ORDER BY Id ASC LIMIT 1");
 
             if (notification is not null)
             {
-                collection.Delete(notification.Id);
+                // For debugging purposes only mark the notification as processed instead of deleting
+                await transaction.ExecuteAsync(
+                    "UPDATE NotificationJobs SET HasBeenProcessed = 1 WHERE Id = @Id", notification);
             }
 
             return notification;
         }
 
-        public void Enqueue(NotificationJobEntity notificationJob)
+        public async Task EnqueueAsync(NotificationJobEntity notificationJob)
         {
-            var collection = _databaseHolder.Database.GetCollection<NotificationJobEntity>();
-            collection.Insert(notificationJob);
+            var transaction = await _dbContext.GetTransactionAsync();
+
+            const string command = "INSERT INTO NotificationJobs(AppName, AppId, CreatedUtc, HasBeenProcessed) " +
+                                   "VALUES (@AppName, @AppId, @CreatedUtc, @HasBeenProcessed)";
+            
+            await transaction.ExecuteAsync(command, notificationJob);
         }
     }
 }

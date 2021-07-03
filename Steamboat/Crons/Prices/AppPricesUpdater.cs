@@ -32,7 +32,7 @@ namespace Steamboat.Crons.Prices
 
             foreach (var appEntity in appEntities)
             {
-                var appEntityUpdated = _appPriceProcessor.Process(
+                var appEntityUpdated = await _appPriceProcessor.ProcessAsync(
                     appEntity, ReadOnlyDictionaryProxy.From(priceInfos), loopId);
                 
                 appEntitiesUpdated.Add(appEntityUpdated);

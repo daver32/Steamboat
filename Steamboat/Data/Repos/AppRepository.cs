@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Dapper.Transaction;
 using InterfaceGenerator;
-using LiteDB;
 using Steamboat.Data.Entities;
 
 namespace Steamboat.Data.Repos
@@ -9,83 +12,70 @@ namespace Steamboat.Data.Repos
     [GenerateAutoInterface]
     internal class AppRepository : IAppRepository
     {
-        private readonly DatabaseHolder _databaseHolder;
+        private readonly IDbContext _dbContext;
 
-        public AppRepository(DatabaseHolder databaseHolder)
+        public AppRepository(IDbContext dbContext)
         {
-            _databaseHolder = databaseHolder;
+            _dbContext = dbContext;
         }
-        
-        public void AddOrUpdateApps(
+
+        public async Task AddOrUpdateAppsAsync(
             IEnumerable<AppEntity> apps,
             bool updatePriceFetchId,
             bool updateLastDiscountPercentage)
         {
-            var collection = GetCollection();
+            var transaction = await _dbContext.GetTransactionAsync();
             
-            var newApps = new List<AppEntity>();
+            var command = BuildInsertOrUpdateCommand(updatePriceFetchId, updateLastDiscountPercentage);
+
             foreach (var app in apps)
             {
-                if (!UpdateAppIfExists(collection, app, updatePriceFetchId, updateLastDiscountPercentage))
-                {
-                    newApps.Add(app);
-                }
+                await transaction.ExecuteAsync(command, app);
             }
-            
-            collection.InsertBulk(newApps);
         }
 
-        private static bool UpdateAppIfExists(
-            ILiteCollection<AppEntity> collection,
-            AppEntity newApp, 
-            bool updatePriceFetchId, 
+        public async Task<IList<AppEntity>> ListAppsAsync(
+            int page,
+            int amount,
+            Guid? excludedPriceFetchId = default)
+        {
+            var transaction = await _dbContext.GetTransactionAsync();
+
+            var results = await transaction.QueryAsync<AppEntity>(
+                "SELECT * FROM Apps WHERE PriceFetchId != @excludedPriceFetchId ORDER BY Id ASC LIMIT @amount OFFSET @offset",
+                new { offset = page * amount, amount, excludedPriceFetchId = excludedPriceFetchId.ToString() });
+
+            return results.ToList();
+        }
+
+        private static string BuildInsertOrUpdateCommand(
+            bool updatePriceFetchId,
             bool updateLastDiscountPercentage)
         {
-            var oldApp = collection.FindById(newApp.Id);
-            if (oldApp is null)
+            var commandBuilder = new StringBuilder();
+
+            commandBuilder.Append("INSERT INTO Apps");
+            commandBuilder.Append("(Id, PriceFetchId, LastDiscountPercentage, Name, LastModified, PriceChangeNumber) ");
+            commandBuilder.Append("VALUES");
+            commandBuilder.Append("(@Id, @PriceFetchId, @LastDiscountPercentage, @Name, @LastModified, @PriceChangeNumber) ");
+
+            commandBuilder.Append("ON CONFLICT(Id) DO UPDATE SET ");
+
+            if (updatePriceFetchId)
             {
-                return false;
+                commandBuilder.Append("PriceFetchId = @PriceFetchId, ");
             }
 
-            var newPriceFetchId = updatePriceFetchId 
-                ? newApp.PriceFetchId 
-                : oldApp.PriceFetchId;
-            
-            var newLastDiscountPercentage = updateLastDiscountPercentage
-                ? newApp.LastDiscountPercentage
-                : oldApp.LastDiscountPercentage;
-
-            newApp = newApp with
+            if (updateLastDiscountPercentage)
             {
-                PriceFetchId = newPriceFetchId,
-                LastDiscountPercentage = newLastDiscountPercentage,
-            };
-
-            return collection.Update(newApp);
-        }
-        
-        public IList<AppEntity> ListApps(
-            int page, 
-            int amount, 
-            Guid? excludedPriceFetchId = null)
-        {
-            var collection = GetCollection();
-
-            var query = collection.Query();
-
-            if (excludedPriceFetchId is not null)
-            {
-                query = query.Where(x => x.PriceFetchId != excludedPriceFetchId);
+                commandBuilder.Append("LastDiscountPercentage = @LastDiscountPercentage, ");
             }
 
-            return query.Skip(page * amount)
-                        .Limit(amount)
-                        .ToList();
-        }
+            commandBuilder.Append("Name = @Name, ");
+            commandBuilder.Append("LastModified = @LastModified, ");
+            commandBuilder.Append("PriceChangeNumber = @PriceChangeNumber");
 
-        private ILiteCollection<AppEntity> GetCollection()
-        {
-            return _databaseHolder.Database.GetCollection<AppEntity>();
+            return commandBuilder.ToString();
         }
     }
 }

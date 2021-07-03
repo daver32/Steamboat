@@ -9,7 +9,7 @@ using Steamboat.Data.Repos;
 using Steamboat.NotificationProcessors;
 using Steamboat.NotificationProcessors.Discord;
 using Steamboat.Steam;
-using Steamboat.Util.Serivices;
+using Steamboat.Util.Services;
 
 namespace Steamboat
 {
@@ -25,26 +25,32 @@ namespace Steamboat
         {
             var builder = new ContainerBuilder();
 
+            builder.RegisterType<CronRunner>().As<IStartable>().SingleInstance();
+            
             builder.RegisterInstance(config).As<IConfiguration>();
             builder.RegisterType<DbConnectionFactory>();
-            builder.RegisterType<DatabaseHolder>().SingleInstance();
+            builder.RegisterType<DbStructureIntializer>();
             builder.RegisterType<AppRepository>().As<IAppRepository>();
             builder.RegisterType<StateEntryRepository>().As<IStateEntryRepository>();
             builder.RegisterType<NotificationJobRepository>().As<INotificationJobRepository>();
+            builder.RegisterType<DbContext>().As<IDbContext>().InstancePerLifetimeScope();
 
             builder.RegisterType<AppListApiService>().As<IAppListApiService>();
             builder.RegisterType<PriceInfoApiService>().As<IPriceInfoApiService>();
 
-            builder.RegisterType<AppListUpdaterCron>().As<IStartable>().SingleInstance();
+            builder.RegisterType<AppListUpdaterCron>().InstancePerLifetimeScope();
+            builder.RegisterType<AppListUpdaterCron.Config>().As<CronConfig>().SingleInstance();
             builder.RegisterType<AppListLastUpdateTimeStore>().As<IAppListLastUpdateTimeStore>();
             
-            builder.RegisterType<PriceUpdaterCron>().As<IStartable>().SingleInstance();
+            builder.RegisterType<PriceUpdaterCron>().InstancePerLifetimeScope();
+            builder.RegisterType<PriceUpdaterCron.Config>().As<CronConfig>().SingleInstance();
             builder.RegisterType<PriceUpdaterConfigProvider>().As<IPriceUpdaterConfigProvider>();
             builder.RegisterType<LoopIdStore>().As<ILoopIdStore>();
             builder.RegisterType<AppPricesUpdater>().As<IAppPricesUpdater>();
             builder.RegisterType<AppPriceProcessor>().As<IAppPriceProcessor>();
             
-            builder.RegisterType<NotificationJobsHandlerCron>().As<IStartable>().SingleInstance();
+            builder.RegisterType<NotificationJobsHandlerCron>().InstancePerLifetimeScope();
+            builder.RegisterType<NotificationJobsHandlerCron.Config>().As<CronConfig>().SingleInstance();
 
             builder.RegisterType<NotificationDispatcher>().As<INotificationDispatcher>().SingleInstance();
             builder.RegisterType<LogNotificationProcessor>().As<INotificationProcessor>().SingleInstance();

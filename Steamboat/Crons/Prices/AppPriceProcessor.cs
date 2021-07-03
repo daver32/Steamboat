@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
 using InterfaceGenerator;
 using Steamboat.Data.Entities;
 using Steamboat.Data.Repos;
@@ -19,7 +20,8 @@ namespace Steamboat.Crons.Prices
         }
         
         [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "100 is a gud value")]
-        public AppEntity Process(AppEntity appEntity, IReadOnlyDictionary<int, AppPriceInfo> priceInfos, Guid loopId)
+        public async Task<AppEntity> ProcessAsync(
+            AppEntity appEntity, IReadOnlyDictionary<int, AppPriceInfo> priceInfos, Guid loopId)
         {
             if (!priceInfos.TryGetValue(appEntity.Id, out var priceInfo) || 
                 !priceInfo.Success || 
@@ -35,7 +37,7 @@ namespace Steamboat.Crons.Prices
             if (priceInfo.Data.PriceOverview.DiscountPercent == 100 &&
                 appEntity.LastDiscountPercentage != 100)
             {
-                OnFreePromotionDetected(appEntity);
+                await OnFreePromotionDetectedAsync(appEntity);
             }
 
             return appEntity with
@@ -45,12 +47,13 @@ namespace Steamboat.Crons.Prices
             };
         }
         
-        private void OnFreePromotionDetected(AppEntity appEntity)
+        private async Task OnFreePromotionDetectedAsync(AppEntity appEntity)
         {
-            _notificationJobRepository.Enqueue(new NotificationJobEntity()
+            await _notificationJobRepository.EnqueueAsync(new NotificationJobEntity()
             {
                 AppName = appEntity.Name,
                 AppId = appEntity.Id,
+                CreatedUtc = DateTimeOffset.UtcNow,
             });
         }
     }
