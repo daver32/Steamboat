@@ -7,6 +7,7 @@ using Flurl;
 using InterfaceGenerator;
 using Newtonsoft.Json.Linq;
 using Steamboat.Steam.Dtos;
+using Steamboat.Util;
 
 namespace Steamboat.Steam
 {
@@ -15,6 +16,8 @@ namespace Steamboat.Steam
     internal class PriceInfoApiService : IDisposable, IPriceInfoApiService
     {
         private readonly HttpClient _client = new();
+
+        private const int RequestTimeoutMs = 60000;
 
         [AutoInterfaceIgnore]
         public void Dispose()
@@ -28,7 +31,7 @@ namespace Steamboat.Steam
         {
             var url = BuildRequestUrl(appIds);
 
-            var json = await _client.GetStringAsync(url, cancellationToken);
+            var json = await _client.GetStringAsync(url, cancellationToken).WithTimeout(RequestTimeoutMs);
 
             return ParseJsonResponse(json);
         }

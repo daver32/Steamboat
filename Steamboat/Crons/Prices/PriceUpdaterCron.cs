@@ -76,6 +76,8 @@ namespace Steamboat.Crons.Prices
             }
 
             public override int UpdateIntervalMs => _configProvider.UpdateIntervalMs;
+            
+            public override int? UpdateTimeoutMs => (int)TimeSpan.FromMinutes(1).TotalMilliseconds;
         }
     }
 }

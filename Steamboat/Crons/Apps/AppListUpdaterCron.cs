@@ -69,6 +69,8 @@ namespace Steamboat.Crons.Apps
                     return (int)TimeSpan.FromHours(intervalHours.Value).TotalMilliseconds;
                 }
             }
+
+            public override int? UpdateTimeoutMs => (int)TimeSpan.FromMinutes(30).TotalMilliseconds;
         }
     }
 }

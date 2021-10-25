@@ -36,6 +36,8 @@ namespace Steamboat.Crons
         public class Config : CronConfig<NotificationJobsHandlerCron>
         {
             public override int UpdateIntervalMs { get; } = (int)TimeSpan.FromMinutes(10).TotalMilliseconds;
+            
+            public override int? UpdateTimeoutMs => (int)TimeSpan.FromMinutes(5).TotalMilliseconds;
         }
     }
 }

@@ -8,6 +8,7 @@ using InterfaceGenerator;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Steamboat.Steam.Dtos;
+using Steamboat.Util;
 
 namespace Steamboat.Steam
 {
@@ -20,6 +21,7 @@ namespace Steamboat.Steam
         private readonly IConfiguration _configuration;
 
         public const int MaxAppsPerRequest = 50000;
+        private const int RequestTimeoutMs = 60000;
 
         public AppListApiService(IConfiguration configuration)
         {
@@ -71,8 +73,8 @@ namespace Steamboat.Steam
             CancellationToken cancellationToken = default)
         {
             var url = BuildUrl(apiKey, ifModifiedSince, lastAppId);
-            
-            var json = await _client.GetStringAsync(url, cancellationToken);
+
+            var json = await _client.GetStringAsync(url, cancellationToken).WithTimeout(RequestTimeoutMs);
             return JsonConvert.DeserializeObject<AppListResponse>(json) ??
                    throw new Exception("Something went wrong while deserializing the JSON response. ");
         }
@@ -104,7 +106,7 @@ namespace Steamboat.Steam
 
             return url;
         }
-
+ 
         // all those damn APIs with 5231235343 levels of nested JSON objects
         private class AppListResponse
         {

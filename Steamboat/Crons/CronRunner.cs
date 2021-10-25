@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Autofac;
 using Steamboat.Data;
+using Steamboat.Util;
 
 namespace Steamboat.Crons
 {
@@ -43,7 +44,14 @@ namespace Steamboat.Crons
 
             try
             {
-                await cron.Update(_cancellationTokenSource.Token);
+                if (cronConfig.UpdateTimeoutMs is int timeoutMs)
+                {
+                    await cron.Update(_cancellationTokenSource.Token).WithTimeout(timeoutMs);
+                }
+                else
+                {
+                    await cron.Update(_cancellationTokenSource.Token);
+                }
             }
             catch (Exception e)
             {
